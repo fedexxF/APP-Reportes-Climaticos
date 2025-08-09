@@ -4,7 +4,10 @@
   <meta charset="UTF-8">
   <title>Reportes Climáticos</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     input, button, label { margin: 5px 0; padding: 5px; }
@@ -14,6 +17,11 @@
       margin-top: 20px;
       border-radius: 8px;
       border: 1px solid #ccc;
+    }
+    .emoji-marker {
+      font-size: 24px;
+      text-align: center;
+      line-height: 1;
     }
   </style>
 </head>
@@ -63,6 +71,9 @@
       attribution: "© OpenStreetMap contributors"
     }).addTo(mapa);
 
+    const clusterGroup = L.markerClusterGroup();
+    mapa.addLayer(clusterGroup);
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const formData = new FormData(form);
@@ -85,35 +96,80 @@
       }
     });
 
+    function agruparPorUbicacion(reportes) {
+      const grupos = {};
+      reportes.forEach(r => {
+        const clave = `${r.lat},${r.lon}`;
+        if (!grupos[clave]) grupos[clave] = [];
+        grupos[clave].push(r);
+      });
+      return grupos;
+    }
+
+    function distribuirEnCirculo(lat, lon, total, index, radio = 0.002) {
+      const angulo = (2 * Math.PI / total) * index;
+      return [
+        lat + radio * Math.cos(angulo),
+        lon + radio * Math.sin(angulo)
+      ];
+    }
+
     async function cargarReportes() {
       const res = await fetch("http://127.0.0.1:8000/reportes/");
       const reportes = await res.json();
       lista.innerHTML = "";
-      mapa.eachLayer(layer => {
-        if (layer instanceof L.Marker) mapa.removeLayer(layer);
-      });
+      clusterGroup.clearLayers();
 
-      reportes.forEach(r => {
-        const eventosConIconos = r.tipo_evento?.map(e => `${iconos[e] || "❓"} ${e}`).join(", ") || "Ninguno";
+      const grupos = agruparPorUbicacion(reportes);
 
-        const item = document.createElement("li");
-        item.innerHTML = `<strong>${r.fecha}</strong> - ${r.ciudad}: ${r.descripcion}<br>
-                          Eventos: ${eventosConIconos}<br>
-                          ${r.archivo ? `<a href="${r.archivo}" target="_blank">📎 Ver archivo</a>` : ""}`;
-        lista.appendChild(item);
+      Object.values(grupos).forEach(grupo => {
+        let eventosTotales = [];
+        grupo.forEach(r => {
+          const eventosConIconos = r.tipo_evento?.map(e => `${iconos[e] || "❓"} ${e}`).join(", ") || "Ninguno";
 
-        if (r.lat && r.lon) {
+          const item = document.createElement("li");
+          item.innerHTML = `<strong>${r.fecha}</strong> - ${r.ciudad}: ${r.descripcion}<br>
+                            Eventos: ${eventosConIconos}<br>
+                            ${r.archivo ? `<a href="${r.archivo}" target="_blank">📎 Ver archivo</a>` : ""}`;
+          lista.appendChild(item);
+
+          if (r.lat && r.lon && Array.isArray(r.tipo_evento)) {
+            r.tipo_evento.forEach(evento => {
+              eventosTotales.push({
+                evento,
+                ciudad: r.ciudad,
+                fecha: r.fecha,
+                descripcion: r.descripcion,
+                archivo: r.archivo,
+                lat: r.lat,
+                lon: r.lon
+              });
+            });
+          }
+        });
+
+        eventosTotales.forEach((ev, index) => {
+          const emoji = iconos[ev.evento] || "❓";
+          const iconoPersonalizado = L.divIcon({
+            className: "emoji-marker",
+            html: emoji
+          });
+
           const popupContent = `
-            <strong>${r.ciudad}</strong><br>
-            ${r.fecha}<br>
-            ${r.descripcion}<br>
-            ${eventosConIconos}<br>
-            ${r.archivo ? `<a href="${r.archivo}" target="_blank">📎 Ver archivo</a>` : ""}
+            <strong>${ev.ciudad}</strong><br>
+            ${ev.fecha}<br>
+            ${ev.descripcion}<br>
+            Evento: ${emoji} ${ev.evento}<br>
+            ${ev.archivo ? `<a href="${ev.archivo}" target="_blank">📎 Ver archivo</a>` : ""}
           `;
-          L.marker([r.lat, r.lon])
-            .addTo(mapa)
+
+          const [latDesfasado, lonDesfasado] = distribuirEnCirculo(ev.lat, ev.lon, eventosTotales.length, index);
+
+          const marcador = L.marker([latDesfasado, lonDesfasado], { icon: iconoPersonalizado })
             .bindPopup(popupContent);
-        }
+
+          clusterGroup.addLayer(marcador);
+        });
       });
     }
 
