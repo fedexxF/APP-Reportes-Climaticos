@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Reportes Climáticos</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    input, button, label { margin: 5px 0; padding: 5px; }
+    #mapa { height: 400px; margin-top: 20px; }
+    .evento { margin-right: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Reportar clima</h1>
+
+  <form id="formulario" enctype="multipart/form-data">
+    <input type="text" name="ciudad" placeholder="Ciudad" required><br>
+    <input type="date" name="fecha" required><br>
+    <input type="text" name="descripcion" placeholder="Descripción"><br>
+
+    <strong>Tipo de evento:</strong><br>
+    <label class="evento"><input type="checkbox" name="tipo_evento" value="Granizo"> Granizo</label>
+    <label class="evento"><input type="checkbox" name="tipo_evento" value="Viento"> Viento</label>
+    <label class="evento"><input type="checkbox" name="tipo_evento" value="Lluvia"> Lluvia</label>
+    <label class="evento"><input type="checkbox" name="tipo_evento" value="Tornado"> Tornado</label>
+    <label class="evento"><input type="checkbox" name="tipo_evento" value="Rayo"> Rayo</label>
+    <label class="evento"><input type="checkbox" name="tipo_evento" value="Nubes"> Nubes</label>
+    <label class="evento"><input type="checkbox" name="tipo_evento" value="Frente de ráfagas"> Frente de ráfagas</label><br>
+
+    <input type="file" name="archivo"><br>
+    <button type="submit">Enviar reporte</button>
+  </form>
+
+  <h2>Reportes guardados</h2>
+  <ul id="lista-reportes"></ul>
+
+  <h2>Mapa de reportes</h2>
+  <div id="mapa"></div>
+
+  <script>
+    const form = document.getElementById("formulario");
+    const lista = document.getElementById("lista-reportes");
+    const mapa = L.map("mapa").setView([-34.6, -58.4], 5); // Argentina
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors"
+    }).addTo(mapa);
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+
+      const eventosSeleccionados = Array.from(document.querySelectorAll('input[name="tipo_evento"]:checked'))
+        .map(e => e.value);
+      formData.append("tipo_evento", JSON.stringify(eventosSeleccionados));
+
+      const res = await fetch("http://127.0.0.1:8000/reportes/", {
+        method: "POST",
+        body: formData
+      });
+
+      if (res.ok) {
+        alert("Reporte enviado");
+        form.reset();
+        cargarReportes();
+      } else {
+        alert("Error al enviar el reporte");
+      }
+    });
+
+    async function cargarReportes() {
+      const res = await fetch("http://127.0.0.1:8000/reportes/");
+      const reportes = await res.json();
+      lista.innerHTML = "";
+      mapa.eachLayer(layer => {
+        if (layer instanceof L.Marker) mapa.removeLayer(layer);
+      });
+
+      reportes.forEach(r => {
+        const item = document.createElement("li");
+        item.innerHTML = `<strong>${r.fecha}</strong> - ${r.ciudad}: ${r.descripcion}<br>
+                          Eventos: ${r.tipo_evento?.join(", ") || "Ninguno"}<br>
+                          ${r.archivo ? `<a href="${r.archivo}" target="_blank">Ver archivo</a>` : ""}`;
+        lista.appendChild(item);
+
+        if (r.lat && r.lon) {
+          const popupContent = `
+            <strong>${r.ciudad}</strong><br>
+            ${r.fecha}<br>
+            ${r.descripcion}<br>
+            ${r.tipo_evento?.join(", ") || "Sin eventos"}<br>
+            ${r.archivo ? `<a href="${r.archivo}" target="_blank">📎 Ver archivo</a>` : ""}
+          `;
+          L.marker([r.lat, r.lon])
+            .addTo(mapa)
+            .bindPopup(popupContent);
+        }
+      });
+    }
+
+    cargarReportes();
+  </script>
+</body>
+</html>

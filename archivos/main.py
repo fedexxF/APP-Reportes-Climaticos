@@ -4,9 +4,6 @@ from fastapi.responses import JSONResponse
 from sqlmodel import Session, SQLModel, create_engine, select
 from models import Reporte
 from typing import Optional
-from fastapi import FastAPI, Request
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
 import os
 import shutil
 import requests
