@@ -8,8 +8,13 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     input, button, label { margin: 5px 0; padding: 5px; }
-    #mapa { height: 400px; margin-top: 20px; }
-    .evento { margin-right: 10px; }
+    .evento { margin-right: 10px; display: inline-block; }
+    #mapa {
+      height: 600px;
+      margin-top: 20px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
   </style>
 </head>
 <body>
@@ -21,13 +26,13 @@
     <input type="text" name="descripcion" placeholder="Descripción"><br>
 
     <strong>Tipo de evento:</strong><br>
-    <label class="evento"><input type="checkbox" name="tipo_evento" value="Granizo"> Granizo</label>
-    <label class="evento"><input type="checkbox" name="tipo_evento" value="Viento"> Viento</label>
-    <label class="evento"><input type="checkbox" name="tipo_evento" value="Lluvia"> Lluvia</label>
-    <label class="evento"><input type="checkbox" name="tipo_evento" value="Tornado"> Tornado</label>
-    <label class="evento"><input type="checkbox" name="tipo_evento" value="Rayo"> Rayo</label>
-    <label class="evento"><input type="checkbox" name="tipo_evento" value="Nubes"> Nubes</label>
-    <label class="evento"><input type="checkbox" name="tipo_evento" value="Frente de ráfagas"> Frente de ráfagas</label><br>
+    <label class="evento"><input type="checkbox" name="tipo_evento" value="Granizo"> 🌩️ Granizo</label>
+    <label class="evento"><input type="checkbox" name="tipo_evento" value="Viento"> 💨 Viento</label>
+    <label class="evento"><input type="checkbox" name="tipo_evento" value="Lluvia"> 🌧️ Lluvia</label>
+    <label class="evento"><input type="checkbox" name="tipo_evento" value="Tornado"> 🌪️ Tornado</label>
+    <label class="evento"><input type="checkbox" name="tipo_evento" value="Rayo"> ⚡ Rayo</label>
+    <label class="evento"><input type="checkbox" name="tipo_evento" value="Nubes"> ☁️ Nubes</label>
+    <label class="evento"><input type="checkbox" name="tipo_evento" value="Frente de ráfagas"> 🌬️ Frente de ráfagas</label><br>
 
     <input type="file" name="archivo"><br>
     <button type="submit">Enviar reporte</button>
@@ -40,6 +45,16 @@
   <div id="mapa"></div>
 
   <script>
+    const iconos = {
+      "Granizo": "🌩️",
+      "Viento": "💨",
+      "Lluvia": "🌧️",
+      "Tornado": "🌪️",
+      "Rayo": "⚡",
+      "Nubes": "☁️",
+      "Frente de ráfagas": "🌬️"
+    };
+
     const form = document.getElementById("formulario");
     const lista = document.getElementById("lista-reportes");
     const mapa = L.map("mapa").setView([-34.6, -58.4], 5); // Argentina
@@ -79,10 +94,12 @@
       });
 
       reportes.forEach(r => {
+        const eventosConIconos = r.tipo_evento?.map(e => `${iconos[e] || "❓"} ${e}`).join(", ") || "Ninguno";
+
         const item = document.createElement("li");
         item.innerHTML = `<strong>${r.fecha}</strong> - ${r.ciudad}: ${r.descripcion}<br>
-                          Eventos: ${r.tipo_evento?.join(", ") || "Ninguno"}<br>
-                          ${r.archivo ? `<a href="${r.archivo}" target="_blank">Ver archivo</a>` : ""}`;
+                          Eventos: ${eventosConIconos}<br>
+                          ${r.archivo ? `<a href="${r.archivo}" target="_blank">📎 Ver archivo</a>` : ""}`;
         lista.appendChild(item);
 
         if (r.lat && r.lon) {
@@ -90,7 +107,7 @@
             <strong>${r.ciudad}</strong><br>
             ${r.fecha}<br>
             ${r.descripcion}<br>
-            ${r.tipo_evento?.join(", ") || "Sin eventos"}<br>
+            ${eventosConIconos}<br>
             ${r.archivo ? `<a href="${r.archivo}" target="_blank">📎 Ver archivo</a>` : ""}
           `;
           L.marker([r.lat, r.lon])
