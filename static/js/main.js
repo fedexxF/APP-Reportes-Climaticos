@@ -308,11 +308,19 @@ mapa.on("click", async function (e) {
 console.log("Mapa cargado");
 cargarReportes();// 🔄 Inicializar
 
-// Función para verificar si una lat/lon está dentro de Argentina (aproximación bounding box)
 function dentroDeArgentina(lat, lon) {
-  // Bounding box aproximado de Argentina
-  return lat >= -55 && lat <= -21 && lon >= -75 && lon <= -53;
-}
+  // 1) Bounding box pequeña para descartar rápido
+  if (lat < -55 || lat > -21 || lon < -75 || lon > -53) {
+    return false;
+  }
 
+  // 2) Polígono detallado
+  if (!argentinaFeature) {
+    // Mientras carga el GeoJSON, asumimos verdadero dentro del bbox
+    return true;
+  }
+  const punto = turf.point([lon, lat]);
+  return turf.booleanPointInPolygon(punto, argentinaFeature);
+}
 console.log("Mapa cargado");
 cargarReportes();
