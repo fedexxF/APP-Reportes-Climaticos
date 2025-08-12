@@ -1,0 +1,32 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+}
+
+input, button, label {
+  margin: 5px 0;
+  padding: 5px;
+}
+
+.evento {
+  margin-right: 10px;
+  display: inline-block;
+}
+
+#mapa {
+  height: 600px;
+  margin-top: 20px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+.emoji-marker {
+  font-size: 24px;
+  text-align: center;
+  line-height: 1;
+}
+
+#ciudad.loading {
+  color: #999;
+  font-style: italic;
+}

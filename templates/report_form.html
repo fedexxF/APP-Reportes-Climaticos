@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Reporte Meteorológico</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet/dist/leaflet.css"
+    />
+  </head>
+  <body>
+    <form method="post" action="/report">
+      <input type="hidden" id="lat" name="lat" />
+      <input type="hidden" id="lon" name="lon" />
+      <!-- Otros campos aquí -->
+      <div id="map" style="height: 400px;"></div>
+      <button type="submit">Enviar Reporte</button>
+    </form>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+      // 1. Inicializas el mapa
+      const mapa = L.map("map").setView([-34.61, -58.38], 12);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(mapa);
+
+      // 2. Aquí pegás el código del marcador arrastrable
+      let marcadorManual;
+
+      mapa.on("click", function (e) {
+        const { lat, lng } = e.latlng;
+        document.getElementById("lat").value = lat.toFixed(6);
+        document.getElementById("lon").value = lng.toFixed(6);
+
+        if (marcadorManual) {
+          marcadorManual.setLatLng(e.latlng);
+        } else {
+          marcadorManual = L.marker(e.latlng, { draggable: true }).addTo(mapa);
+          marcadorManual.on("dragend", function (ev) {
+            const pos = ev.target.getLatLng();
+            document.getElementById("lat").value = pos.lat.toFixed(6);
+            document.getElementById("lon").value = pos.lng.toFixed(6);
+          });
+        }
+      });
+    </script>
+  </body>
+</html>

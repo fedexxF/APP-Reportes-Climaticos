@@ -1,21 +1,29 @@
-from fastapi import FastAPI, UploadFile, Form
+from fastapi import FastAPI, UploadFile, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
 from sqlmodel import Session, SQLModel, create_engine, select
 from models import Reporte
+
 from typing import Optional
-from fastapi import FastAPI, Request
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
 import os
 import shutil
 import requests
 import json
 
-
+# 🚀 Inicializar app
 app = FastAPI()
 
-# CORS para permitir frontend local
+# 🧱 Montar carpeta estática
+app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/uploads", StaticFiles(directory="static/uploads"), name="uploads")
+
+# 🧩 Configurar templates
+templates = Jinja2Templates(directory="templates")
+
+# 🌐 CORS para desarrollo local
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,7 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Base de datos SQLite
+# 🗃️ Base de datos SQLite
 engine = create_engine("sqlite:///database.db")
 
 @app.on_event("startup")
@@ -51,18 +59,26 @@ async def crear_reporte(
     tipo_evento: str = Form("[]"),  # Recibimos como string JSON
     temperatura: Optional[float] = Form(None),
     humedad: Optional[float] = Form(None),
-    archivo: UploadFile = None
+    archivo: Optional[UploadFile] = None
 ):
+    # 🧾 Guardar archivo si existe
     ruta_archivo = None
     if archivo:
+        os.makedirs("uploads", exist_ok=True)
         ruta_archivo = f"uploads/{archivo.filename}"
         with open(ruta_archivo, "wb") as buffer:
             shutil.copyfileobj(archivo.file, buffer)
 
+    # 📍 Geolocalización
     lat, lon = geolocalizar_ciudad(ciudad)
 
-    eventos = json.loads(tipo_evento) if tipo_evento else []
+    # 🧪 Parsear eventos
+    try:
+        eventos = json.loads(tipo_evento) if tipo_evento else []
+    except json.JSONDecodeError:
+        eventos = []
 
+    # 🆕 Crear instancia
     nuevo_reporte = Reporte(
         ciudad=ciudad,
         fecha=fecha,
@@ -75,6 +91,7 @@ async def crear_reporte(
         tipo_evento=eventos
     )
 
+    # 💾 Guardar en DB
     with Session(engine) as session:
         session.add(nuevo_reporte)
         session.commit()
@@ -88,3 +105,8 @@ def listar_reportes():
     with Session(engine) as session:
         reportes = session.exec(select(Reporte)).all()
         return reportes
+
+# 🏠 Ruta principal (renderiza HTML)
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
