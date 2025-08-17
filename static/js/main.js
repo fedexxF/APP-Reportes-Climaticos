@@ -7,7 +7,6 @@ const iconos = {
 
 const form = document.getElementById("formulario");
 const lista = document.getElementById("lista-reportes");
-const inputCiudad = document.getElementById("ciudad");
 const inputLocalidad = document.getElementById("localidad");
 const btnUbicacion = document.getElementById("btn-ubicacion");
 
@@ -19,8 +18,7 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 const clusterGroup = L.markerClusterGroup();
 mapa.addLayer(clusterGroup);
 
-
-// 🗺️ Sombreado de Argentina (compatible con cualquier formato)
+// 🗺️ Sombreado de Argentina
 let argentinaFeature = null;
 
 mapa.whenReady(() => {
@@ -33,11 +31,8 @@ mapa.whenReady(() => {
   fetch("https://raw.githubusercontent.com/georgique/world-geojson/master/countries/argentina.json")
     .then(res => res.json())
     .then(data => {
-      console.log("🔍 GeoJSON Argentina raw:", data);
-
       let coordsArray = null;
 
-      // 1) FeatureCollection
       if (data.type === "FeatureCollection" && Array.isArray(data.features)) {
         coordsArray = data.features.flatMap(f => {
           const g = f.geometry;
@@ -46,8 +41,6 @@ mapa.whenReady(() => {
           if (g.type === "Polygon") return [g.coordinates];
           return [];
         });
-
-      // 2) Feature
       } else if (data.type === "Feature" && data.geometry) {
         const g = data.geometry;
         coordsArray = g.type === "MultiPolygon"
@@ -55,17 +48,11 @@ mapa.whenReady(() => {
           : g.type === "Polygon"
             ? [g.coordinates]
             : null;
-
-      // 3) MultiPolygon puro
-      } else if (data.type === "MultiPolygon" && Array.isArray(data.coordinates)) {
+      } else if (data.type === "MultiPolygon") {
         coordsArray = data.coordinates;
-
-      // 4) Polygon puro
-      } else if (data.type === "Polygon" && Array.isArray(data.coordinates)) {
+      } else if (data.type === "Polygon") {
         coordsArray = [data.coordinates];
-
-      // 5) GeometryCollection
-      } else if (data.type === "GeometryCollection" && Array.isArray(data.geometries)) {
+      } else if (data.type === "GeometryCollection") {
         coordsArray = data.geometries.flatMap(g => {
           if (g.type === "MultiPolygon") return g.coordinates;
           if (g.type === "Polygon") return [g.coordinates];
@@ -78,13 +65,11 @@ mapa.whenReady(() => {
         return;
       }
 
-      // Guardamos un Feature estándar para turf
       argentinaFeature = {
         type: "Feature",
         geometry: { type: "MultiPolygon", coordinates: coordsArray }
       };
 
-      // Transformar lon/lat → lat/lon y crear anillos exteriores
       const argRings = coordsArray.map(polygon => {
         const exterior = polygon[0];
         const latlngRing = exterior.map(([lon, lat]) => [lat, lon]);
@@ -92,7 +77,6 @@ mapa.whenReady(() => {
         return latlngRing;
       });
 
-      // Dibujar
       L.polygon([worldRing, ...argRings], {
         fillColor: "#999",
         fillOpacity: 0.5,
@@ -106,18 +90,18 @@ mapa.whenReady(() => {
 });
 
 // 🌍 Reverse geocoding
-const cacheCiudad = new Map();
-async function obtenerCiudad(lat, lon) {
+const cacheLocalidad = new Map();
+async function obtenerLocalidad(lat, lon) {
   const clave = `${lat.toFixed(3)},${lon.toFixed(3)}`;
-  if (cacheCiudad.has(clave)) {
-    inputCiudad.value = cacheCiudad.get(clave);
-    return cacheCiudad.get(clave);
+  if (cacheLocalidad.has(clave)) {
+    inputLocalidad.value = cacheLocalidad.get(clave);
+    return cacheLocalidad.get(clave);
   }
 
-  inputCiudad.value = "";
-  inputCiudad.placeholder = "Buscando ciudad…";
-  inputCiudad.classList.add("loading");
-  inputCiudad.disabled = true;
+  inputLocalidad.value = "";
+  inputLocalidad.placeholder = "Buscando localidad…";
+  inputLocalidad.classList.add("loading");
+  inputLocalidad.disabled = true;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -130,18 +114,18 @@ async function obtenerCiudad(lat, lon) {
     if (!res.ok) throw new Error(res.statusText);
     const data = await res.json();
     const addr = data.address || {};
-    const ciudad = addr.city || addr.town || addr.village || addr.municipality || addr.county || "Desconocida";
-    cacheCiudad.set(clave, ciudad);
-    inputCiudad.value = ciudad;
-    return ciudad;
+    const localidad = addr.city || addr.town || addr.village || addr.municipality || addr.county || "Desconocida";
+    cacheLocalidad.set(clave, localidad);
+    inputLocalidad.value = localidad;
+    return localidad;
   } catch {
-    inputCiudad.placeholder = "Ciudad (no disponible)";
+    inputLocalidad.placeholder = "Localidad (no disponible)";
     return "Desconocida";
   } finally {
     clearTimeout(timeoutId);
-    inputCiudad.disabled = false;
-    inputCiudad.classList.remove("loading");
-    inputCiudad.placeholder = "Ciudad";
+    inputLocalidad.disabled = false;
+    inputLocalidad.classList.remove("loading");
+    inputLocalidad.placeholder = "Localidad";
   }
 }
 
@@ -163,8 +147,8 @@ btnUbicacion.addEventListener("click", () => {
       document.getElementById("lon").value = lon;
       mapa.setView([lat, lon], 7);
       L.circle([lat, lon], { radius: 100, color: "blue" }).addTo(mapa);
-      const ciudad = await obtenerCiudad(lat, lon);
-      inputLocalidad.value = ciudad;
+      const localidad = await obtenerLocalidad(lat, lon);
+      inputLocalidad.value = localidad;
     },
     err => {
       alert("No se pudo obtener tu ubicación.");
@@ -174,25 +158,33 @@ btnUbicacion.addEventListener("click", () => {
 });
 
 // 📤 Envío de formulario
-form.addEventListener("submit", async e => {
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
+
   const formData = new FormData(form);
-  formData.delete("tipo_evento");
-  const eventosSeleccionados = Array.from(
+  const tipo_evento = Array.from(
     document.querySelectorAll('input[name="tipo_evento"]:checked')
   ).map(i => i.value);
-  formData.append("tipo_evento", JSON.stringify(eventosSeleccionados));
+
+  formData.delete("tipo_evento");
+  tipo_evento.forEach(evt => {
+    formData.append("tipo_evento", evt);
+  });
 
   const res = await fetch("http://127.0.0.1:8000/reportes/", {
     method: "POST",
     body: formData
   });
+
   if (res.ok) {
-    alert("Reporte enviado");
+    alert("✅ Reporte enviado correctamente.");
     form.reset();
-    cargarReportes();
+    const reporte = await res.json();
+    dibujarReporte(reporte);
   } else {
-    alert("Error al enviar el reporte");
+    const error = await res.json();
+    alert("❌ Error al enviar el reporte: " + (error?.detail?.[0]?.msg || error?.error || "Error desconocido"));
+    console.error("🚨 Error al enviar:", error);
   }
 });
 
@@ -212,60 +204,85 @@ function distribuirEnCirculo(lat, lon, total, idx, radio = 0.002) {
   return [lat + radio * Math.cos(ang), lon + radio * Math.sin(ang)];
 }
 
-async function cargarReportes() {
-  const res = await fetch("http://127.0.0.1:8000/reportes/");
-  const reportes = await res.json();
-  lista.innerHTML = "";
-  clusterGroup.clearLayers();
+function dibujarReporte(reporte) {
+  if (!reporte || !reporte.lat || !reporte.lon) {
+    console.warn("⚠️ Reporte inválido:", reporte);
+    return;
+  }
 
-  const grupos = agruparPorUbicacion(reportes);
-  Object.values(grupos).forEach(grupo => {
-    const eventosTot = [];
-    grupo.forEach(r => {
-      if (r.lat && r.lon && Array.isArray(r.tipo_evento)) {
-        r.tipo_evento.forEach(evt =>
-          eventosTot.push({
-            evento: evt,
-            ciudad: r.ciudad,
-            fecha: r.fecha,
-            descripcion: r.descripcion,
-            archivo: r.archivo,
-            lat: r.lat,
-            lon: r.lon
-          })
-        );
-      }
+  const nombre = reporte.ciudad || reporte.localidad || "Desconocida";
+  const eventos = Array.isArray(reporte.tipo_evento) ? reporte.tipo_evento : [];
+  const archivoUrl = reporte.archivo?.startsWith("uploads/")
+    ? `/${reporte.archivo}`
+    : `/uploads/${reporte.archivo}`;
 
-      const iconosEvt = r.tipo_evento
-        ?.map(e => `${iconos[e] || "❓"} ${e}`)
-        .join(", ") || "Ninguno";
-
-      const item = document.createElement("li");
-      item.innerHTML = `
-        <strong>${r.fecha}</strong> - ${r.ciudad}: ${r.descripcion}<br>
-        Eventos: ${iconosEvt}<br>
-        ${r.archivo ? `<a href="/${r.archivo}" target="_blank">📎 Ver archivo</a>` : ""}
-      `;
-      lista.appendChild(item);
-    });
-
-    eventosTot.forEach((ev, i) => {
-      const emoji = iconos[ev.evento] || "❓";
-      const divIco = L.divIcon({ className: "emoji-marker", html: emoji });
-      const popup = `
-        <strong>${ev.ciudad}</strong><br>
-        ${ev.fecha}<br>
-        ${ev.descripcion}<br>
-        Evento: ${emoji} ${ev.evento}<br>
-        ${ev.archivo ? `<a href="/${ev.archivo}" target="_blank">📎 Ver archivo</a>` : ""}
-      `;
-      const [latD, lonD] = distribuirEnCirculo(ev.lat, ev.lon, eventosTot.length, i);
-      L.marker([latD, lonD], { icon: divIco })
-        .bindPopup(popup)
-        .addTo(clusterGroup);
-    });
+  eventos.forEach((evt, i) => {
+    const emoji = iconos[evt] || "❓";
+    const divIco = L.divIcon({ className: "emoji-marker", html: emoji });
+    const popup = `
+      <strong>${nombre}</strong><br>
+      ${reporte.fecha}<br>
+      ${reporte.descripcion}<br>
+      Evento: ${emoji} ${evt}<br>
+      ${archivoUrl ? `<a href="${archivoUrl}" target="_blank">📎 Ver archivo</a>` : ""}
+    `;
+        const [latD, lonD] = distribuirEnCirculo(reporte.lat, reporte.lon, eventos.length, i);
+    const marker = L.marker([latD, lonD], { icon: divIco }).bindPopup(popup);
+    marker.addTo(clusterGroup);
+    console.log(`🟢 Marcador dibujado: ${evt} en ${nombre} (${latD}, ${lonD})`);
   });
+
+  // 📝 Agregar a la lista lateral
+  const iconosEvt = eventos.map(e => `${iconos[e] || "❓"} ${e}`).join(", ") || "Ninguno";
+  const item = document.createElement("li");
+  item.innerHTML = `
+    <strong>${reporte.fecha}</strong> - ${nombre}: ${reporte.descripcion}<br>
+    Eventos: ${iconosEvt}<br>
+    ${archivoUrl ? `<a href="${archivoUrl}" target="_blank">📎 Ver archivo</a>` : ""}
+  `;
+  lista.prepend(item);
 }
+
+// 🔄 Inicializar cuando el DOM esté listo
+window.addEventListener("DOMContentLoaded",
+   async () => {
+  console.log("Mapa cargado");
+
+  try {
+    const res = await fetch("http://127.0.0.1:8000/reportes/");
+    const reportes = await res.json();
+
+    lista.innerHTML = "";
+    clusterGroup.clearLayers();
+
+    const grupos = agruparPorUbicacion(reportes);
+    let bounds = null;
+    let marcadorValido = 0;
+
+    Object.values(grupos).forEach(grupo => {
+      grupo.forEach(r => {
+        if (r.lat && r.lon) {
+          dibujarReporte(r);
+          const punto = L.latLng(r.lat, r.lon);
+          bounds = bounds ? bounds.extend(punto) : L.latLngBounds(punto, punto);
+          marcadorValido++;
+        } else {
+          console.warn("⚠️ Reporte omitido por falta de coordenadas:", r);
+        }
+      });
+    });
+
+    if (window.map && bounds && marcadorValido > 0) {
+      window.map.fitBounds(bounds);
+      console.log("🗺️ Ajustando vista del mapa a los reportes");
+    } else {
+      console.log("ℹ️ No se ajusta el mapa porque no hay marcadores válidos.");
+    }
+  } catch (error) {
+    console.error("❌ Error al cargar reportes:", error);
+  }
+});
+
 // 📌 Selección manual en el mapa
 let marcadorManual;
 
@@ -280,13 +297,15 @@ mapa.on("click", async function (e) {
   document.getElementById("lat").value = lat.toFixed(6);
   document.getElementById("lon").value = lng.toFixed(6);
 
-  const ciudad = await obtenerCiudad(lat, lng);
-  inputLocalidad.value = ciudad;
+  const localidad = await obtenerLocalidadGeoref(lat, lng);
+  inputLocalidad.value = localidad;
+
+  mapa.setView([lat, lng], 8);
 
   if (marcadorManual) {
-    marcadorManual.setLatLng(e.latlng);
+    marcadorManual.setLatLng([lat, lng]);
   } else {
-    marcadorManual = L.marker(e.latlng, { draggable: true }).addTo(mapa);
+    marcadorManual = L.marker([lat, lng], { draggable: true }).addTo(mapa);
     marcadorManual.on("dragend", async function (ev) {
       const pos = ev.target.getLatLng();
       document.getElementById("lat").value = pos.lat.toFixed(6);
@@ -297,30 +316,54 @@ mapa.on("click", async function (e) {
         return;
       }
 
-      const ciudadDrag = await obtenerCiudad(pos.lat, pos.lng);
-      inputLocalidad.value = ciudadDrag;
+      const localidadDrag = await obtenerLocalidadGeoref(pos.lat, pos.lng);
+      inputLocalidad.value = localidadDrag;
     });
   }
 });
 
-
-// 🔄 Inicializar
-console.log("Mapa cargado");
-cargarReportes();// 🔄 Inicializar
-
+// 📍 Validación geográfica dentro de Argentina
 function dentroDeArgentina(lat, lon) {
-  // 1) Bounding box pequeña para descartar rápido
-  if (lat < -55 || lat > -21 || lon < -75 || lon > -53) {
+  if (!(lat > -55 && lat < -21 && lon > -75 && lon < -53)) {
     return false;
   }
 
-  // 2) Polígono detallado
   if (!argentinaFeature) {
-    // Mientras carga el GeoJSON, asumimos verdadero dentro del bbox
     return true;
   }
+
+  if (typeof turf === "undefined" || !turf.point || !turf.booleanPointInPolygon) {
+    console.error("❌ Turf.js no está cargado correctamente.");
+    return false;
+  }
+
   const punto = turf.point([lon, lat]);
   return turf.booleanPointInPolygon(punto, argentinaFeature);
 }
-console.log("Mapa cargado");
-cargarReportes();
+
+// 🌎 Reverse geocoding con API de georef
+async function obtenerLocalidadGeoref(lat, lon) {
+  const url = `https://apis.datos.gob.ar/georef/api/ubicacion?lat=${lat}&lon=${lon}`;
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+
+    const localidad = data.ubicacion.localidad?.nombre;
+    const departamento = data.ubicacion.departamento?.nombre;
+    const provincia = data.ubicacion.provincia?.nombre;
+
+    if (localidad) {
+      return localidad;
+    } else if (departamento) {
+      return `${departamento}, ${provincia}`;
+    } else if (provincia) {
+      return provincia;
+    } else {
+      return "Ubicación sin nombre";
+    }
+  } catch (error) {
+    console.error("❌ Error al obtener localidad:", error);
+    return "Error de geolocalización";
+  }
+}

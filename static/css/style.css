@@ -23,10 +23,11 @@ input, button, label {
 .emoji-marker {
   font-size: 24px;
   text-align: center;
-  line-height: 1;
+  line-height: 24px;
 }
 
 #ciudad.loading {
   color: #999;
   font-style: italic;
 }
+
