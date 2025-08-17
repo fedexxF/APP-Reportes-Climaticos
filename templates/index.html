@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Reportes Climáticos</title>
+
+  <!-- Estilos Leaflet y MarkerCluster -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"
+  />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"
+  />
+  <link rel="stylesheet" href="/static/css/style.css" />
+
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    input, button, label { margin: 5px 0; padding: 5px; }
+    .evento { margin-right: 10px; display: inline-block; }
+    #mapa {
+      height: 600px;
+      margin-top: 20px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    .emoji-marker {
+      font-size: 24px;
+      text-align: center;
+      line-height: 1;
+    }
+    #ciudad.loading {
+      color: #999;
+      font-style: italic;
+    }
+  </style>
+  <link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+></script>
+  <script>
+  delete L.Icon.Default.prototype._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+  });
+</script>
+
+</head>
+<body>
+  <h1>Reportar clima</h1>
+  <form id="formulario" enctype="multipart/form-data">
+    <!-- Ciudad (reverse-geocoding) -->
+<label for="localidad">Localidad:</label>
+    <input type="text" id="localidad" name="localidad" placeholder="localidad" /><br>
+<label for="fecha">Fecha:</label>
+<input type="date" name="fecha" id="fecha" required /><br>
+<label for="descripcion">Descripción:</label>
+<input type="text" name="descripcion" id="descripcion" placeholder="Descripción (opcional)" /><br>
+
+    <strong>Tipo de evento:</strong><br>
+    <label class="evento">
+      <input type="checkbox" name="tipo_evento" value="Granizo" /> 🌩️ Granizo
+    </label>
+    <label class="evento">
+      <input type="checkbox" name="tipo_evento" value="Viento" /> 💨 Viento
+    </label>
+    <label class="evento">
+      <input type="checkbox" name="tipo_evento" value="Lluvia" /> 🌧️ Lluvia
+    </label>
+    <label class="evento">
+      <input type="checkbox" name="tipo_evento" value="Tornado" /> 🌪️ Tornado
+    </label>
+    <label class="evento">
+      <input type="checkbox" name="tipo_evento" value="Rayo" /> ⚡ Rayo
+    </label>
+    <label class="evento">
+      <input type="checkbox" name="tipo_evento" value="Nubes" /> ☁️ Nubes
+    </label>
+    <label class="evento">
+      <input type="checkbox" name="tipo_evento" value="Frente de ráfagas" /> 🌬️ Frente de ráfagas
+    </label><br>
+
+    <input type="file" name="archivo" /><br>
+
+    <button type="submit">Enviar reporte</button>
+    <button type="button" id="btn-ubicacion">📍 Usar mi ubicación</button><br>
+
+    <!-- Coordenadas geográficas (ocultas pero requeridas) -->
+    <input type="hidden" name="lat" id="lat" required />
+    <input type="hidden" name="lon" id="lon" required />
+  </form>
+
+  <h2>Reportes guardados</h2>
+  <ul id="lista-reportes"></ul>
+
+  <h2>Mapa de reportes</h2>
+  <div id="mapa"></div>
+
+  <!-- Librerías externas -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // 🔧 Forzamos rutas absolutas para los iconos de Leaflet
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+      iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+    });
+  </script>
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+  <!-- Tu main.js con toda la lógica -->
+  <script src="/static/js/main.js" defer></script>
+</body>
+</html>
+
